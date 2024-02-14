@@ -10,7 +10,7 @@ export const pool = new Pool({
   password: process.env["PGPASSWORD"],
 });
 
-export const query = (text: string, params?: (string | number | boolean)[]) => {
+export const query = (text: string, params?: (string | number | undefined)[]) => {
   return pool.query(text, params);
 };
 
