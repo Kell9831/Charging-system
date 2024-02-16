@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import { costFactor } from "../utils/const-util";
 
 export async function getUsers(): Promise<User[]> {
-  const result = await query("SELECT * FROM users;");
+  const result = await query("SELECT id, email, name, age, role FROM users ;");
   return result.rows;
 }
 

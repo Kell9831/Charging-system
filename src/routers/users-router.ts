@@ -15,7 +15,7 @@ const usersRouter = express.Router();
 
 const upload = multer({ dest: 'uploads/' });
 
-usersRouter.post('/upload', upload.single('csvFile'),authenticateHandler, validationHandler(userSchema), async (req: RequestWithValidationErrors, res: Response) => {
+usersRouter.post('/upload', upload.single('csvFile'),authenticateHandler, authorize("admin"),validationHandler(userSchema), async (req: RequestWithValidationErrors, res: Response) => {
   try {
     if (!req.file) {
       throw new Error("No se ha proporcionado ningún archivo");
@@ -56,7 +56,7 @@ usersRouter.post('/upload', upload.single('csvFile'),authenticateHandler, valida
 });
 
 
-usersRouter.get("/users",authorize("admin"), async (_req, res) => {
+usersRouter.get("/users",authenticateHandler,authorize("admin"), async (_req, res) => {
   try {
     const users = await getUsers();
     res.json(users);
