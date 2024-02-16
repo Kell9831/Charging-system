@@ -11,9 +11,7 @@ authRouter.post("/", async (req, res, next) => {
   try {
     const user = await validateCredentials(req.body);
     const payload = { userId: user.id, userRole: user.role };
-    console.log(`payload ${payload}`)
-    const token = jwt.sign(payload, jwtSecret, { expiresIn: "5m" });
-    console.log(`token ${token}`)
+    const token = jwt.sign(payload, jwtSecret, { expiresIn: "15m" });
     res.json({ ok: true, message: "Login exitoso", data: { token } });
   } catch (error) {
     next(error);

@@ -1,32 +1,51 @@
-import { ZodSchema, ZodError, ZodIssue } from "zod";
-import { ApiError } from "./error";
-import { NextFunction, Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
+import { createReadStream } from "fs";
+import csv from "csv-parser";
+import { ZodError } from "zod";
 
-export function validationHandler<T>(schema: ZodSchema<T>) {
-  return async (req: Request, _res: Response, next: NextFunction) => {
-    try {
-      const body = schema.parse(req.body);
-      req.body = body;
-      next();
-    } catch (error) {
-      if (error instanceof ZodError) {
-        console.log(error);
-        next(
-          new ApiError("Error de validación", 400, formatIssues(error.issues))
-        );
-      } else {
-        next(error);
-      }
-    }
-  };
+export interface RequestWithValidationErrors extends Request {
+  validationErrors?: { row: number; details: Record<string, string> }[];
 }
 
-function formatIssues(issues: ZodIssue[]) {
-  const formattedIssues: Record<string, string> = {};
+export function validationHandler(userSchema): (req: RequestWithValidationErrors, res: Response, next: NextFunction) => void {
+  return (req: RequestWithValidationErrors, _res: Response, next: NextFunction) => {
+    if (!req.file) {
+      throw new Error("No se ha proporcionado ningún archivo");
+    }
 
-  issues.forEach((issue) => {
-    formattedIssues[issue.path.join(".")] = issue.message;
-  });
+    const validationErrors: { row: number; details: Record<string, string> }[] = [];
+    let rowIndex = 0; 
 
-  return formattedIssues;
+    createReadStream(req.file.path)
+      .pipe(csv())
+      .on("data", (row: any) => {
+        rowIndex++;
+        try {
+          // Validar la fila del CSV con el esquema de usuario
+          const userData = {
+            name: row.name,
+            email: row.email,
+            age: parseInt(row.age),
+            // Utilizar el valor por defecto para el campo password
+            password: "supersecret",
+            // Establecer el rol por defecto si no está presente en el CSV
+            role: row.role || "user"
+          };
+          userSchema.parse(userData);
+        } catch (error) {
+          if (error instanceof ZodError) {
+            // Si hay errores de validación, los agregamos al array de errores
+            const errorDetails: Record<string, string> = {};
+            error.errors.forEach((err) => {
+              errorDetails[err.path[0]] = err.message;
+            });
+            validationErrors.push({ row: rowIndex , details: errorDetails });
+          }
+        }
+      })
+      .on("end", () => {
+        req.validationErrors = validationErrors;
+        next();
+      });
+  };
 }

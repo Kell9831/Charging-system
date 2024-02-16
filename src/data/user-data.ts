@@ -1,5 +1,7 @@
 import { query } from "../db";
 import { User } from "../models/user";
+import bcrypt from "bcrypt";
+import { costFactor } from "../utils/const-util";
 
 export async function getUsers(): Promise<User[]> {
   const result = await query("SELECT * FROM users;");
@@ -14,18 +16,33 @@ export async function getUserByEmail(
     .rows[0];
 }
 
+
 export async function createUser(
-    email: string,
-    password: string,
-    name:string,
-    age:number | undefined,
-    role:string,
-  ): Promise<User> {
-    return (
-      await query(
-        "INSERT INTO users (email, password,name,age,role) VALUES ($1, $2, $3,$4,$5) RETURNING *",
-  
-        [email, password,name,age,role]
-      )
-    ).rows[0];
+  email: string,
+  name: string,
+  age?: number, 
+  role: string = 'user', 
+): Promise<User> {
+  // Contraseña predeterminada
+  const defaultPassword = "supersecret";
+
+  const hashedPassword = await bcrypt.hash(defaultPassword, costFactor);
+
+  try {
+    // Insertar el nuevo usuario en la base de datos
+    const queryResult = await query(
+      "INSERT INTO users (email, name, role, age, password) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [email, name, role, age, hashedPassword]
+    );
+    
+    // Eliminar el campo de la contraseña del objeto de usuario devuelto
+    const user = { ...queryResult.rows[0] };
+    delete user.password;
+    
+    return user;
+  } catch (error) {
+    // Manejar errores de la consulta SQL
+    console.error("Error al crear usuario:", error);
+    throw new Error("Error al crear usuario");
+  }
 }
